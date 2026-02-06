@@ -2,41 +2,45 @@
   <v-card class="mb-4" elevation="2">
     <v-card-text>
       <v-row>
-        <!-- Label Field -->
+        <!-- Метка -->
         <v-col cols="12" md="3">
           <v-text-field
-            v-model="localAccount.label"
-            label="Label"
+            v-model="labelInputString"
+            label="Метка"
             density="comfortable"
             variant="outlined"
             :error="errors.label"
-            @blur="validateLabel"
-            @update:model-value="handleLabelUpdate"
+            :placeholder="labelHint"
+            :hint="labelHint"
+            persistent-hint
+            @blur="handleLabelBlur"
             hide-details="auto"
             :error-messages="errors.label ? 'Максимум 50 символов' : ''"
           >
-            <template v-slot:append-inner v-if="labelChips.length > 0">
+            <template v-slot:append-inner v-if="localAccount.label.length > 0">
               <div class="d-flex flex-wrap gap-1">
                 <v-chip
-                  v-for="(chip, index) in labelChips"
+                  v-for="(item, index) in localAccount.label"
                   :key="index"
                   size="x-small"
                   color="primary"
                   variant="flat"
                 >
-                  {{ chip.text }}
+                  {{ item.text }}
                 </v-chip>
               </div>
             </template>
           </v-text-field>
         </v-col>
 
-        <!-- Type Field -->
+        <!-- Тип записи -->
         <v-col cols="12" md="2">
           <v-select
             v-model="localAccount.type"
-            :items="['LDAP', 'Local']"
-            label="Type"
+            :items="typeItems"
+            item-title="title"
+            item-value="value"
+            label="Тип записи"
             density="comfortable"
             variant="outlined"
             @update:model-value="handleTypeChange"
@@ -44,38 +48,36 @@
           />
         </v-col>
 
-        <!-- Login Field -->
+        <!-- Логин -->
         <v-col cols="12" md="3">
           <v-text-field
             v-model="localAccount.login"
-            label="Login"
+            label="Логин"
             density="comfortable"
             variant="outlined"
             :error="errors.login"
-            @blur="validateLogin"
-            @update:model-value="handleLoginUpdate"
+            @blur="handleLoginBlur"
             hide-details="auto"
             :error-messages="errors.login ? 'Обязательное поле, макс. 100 символов' : ''"
           />
         </v-col>
 
-        <!-- Password Field -->
+        <!-- Пароль -->
         <v-col cols="12" md="3" v-if="localAccount.type === 'Local'">
           <v-text-field
             v-model="localAccount.password"
-            label="Password"
+            label="Пароль"
             type="password"
             density="comfortable"
             variant="outlined"
             :error="errors.password"
-            @blur="validatePassword"
-            @update:model-value="handlePasswordUpdate"
+            @blur="handlePasswordBlur"
             hide-details="auto"
             :error-messages="errors.password ? 'Обязательное поле, макс. 100 символов' : ''"
           />
         </v-col>
 
-        <!-- Delete Button -->
+        <!-- Кнопка удаления -->
         <v-col cols="12" md="1" class="d-flex align-center">
           <v-btn
             icon="mdi-delete"
@@ -90,9 +92,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, watch } from 'vue'
 import type { Account } from '@/types/account'
 import { useAccountsStore } from '@/stores/accounts'
+
+const labelHint = 'Метки через точку с запятой, например: admin; dev'
+
+const typeItems = [
+  { title: 'LDAP', value: 'LDAP' as const },
+  { title: 'Локальная', value: 'Local' as const }
+]
 
 interface Props {
   account: Account
@@ -101,7 +110,34 @@ interface Props {
 const props = defineProps<Props>()
 const store = useAccountsStore()
 
-const localAccount = ref<Account>({ ...props.account })
+const localAccount = ref<Account>(normalizeAccount(props.account))
+
+/** Строка для ввода метки (отображаемая в input); при сохранении парсится в label[] */
+const labelInputString = ref(stringFromLabel(localAccount.value.label))
+
+function stringFromLabel(label: { text: string }[]): string {
+  return label.map(item => item.text).join('; ')
+}
+
+function labelFromString(s: string): { text: string }[] {
+  if (!s.trim()) return []
+  return s
+    .split(';')
+    .map(part => part.trim())
+    .filter(part => part.length > 0)
+    .map(text => ({ text }))
+}
+
+/** Приводит аккаунт к формату ТЗ (label — массив); миграция со старого формата */
+function normalizeAccount(account: Account & { label?: unknown }): Account {
+  const raw = account.label
+  const label: { text: string }[] = Array.isArray(raw)
+    ? raw
+    : typeof raw === 'string'
+      ? labelFromString(raw)
+      : []
+  return { ...account, label }
+}
 
 const errors = ref({
   label: false,
@@ -109,19 +145,8 @@ const errors = ref({
   password: false
 })
 
-// Parse label для отображения чипов
-const labelChips = computed(() => {
-  if (!localAccount.value.label) return []
-  return localAccount.value.label
-    .split(';')
-    .map(tag => tag.trim())
-    .filter(tag => tag.length > 0)
-    .map(tag => ({ text: tag }))
-})
-
-// Валидация label
 const validateLabel = () => {
-  if (localAccount.value.label.length > 50) {
+  if (labelInputString.value.length > 50) {
     errors.value.label = true
     return false
   }
@@ -159,21 +184,22 @@ const validatePassword = () => {
   return true
 }
 
-// Обработчики изменений
-const handleLabelUpdate = () => {
-  if (validateLabel()) {
+const handleLabelBlur = () => {
+  if (!validateLabel()) return
+  localAccount.value.label = labelFromString(labelInputString.value)
+  store.updateAccount(localAccount.value)
+}
+
+const handleLoginBlur = () => {
+  if (validateLogin()) {
     store.updateAccount(localAccount.value)
   }
 }
 
-const handleLoginUpdate = () => {
-  // Обновляем сразу, но показываем ошибку если невалидно
-  store.updateAccount(localAccount.value)
-}
-
-const handlePasswordUpdate = () => {
-  // Обновляем сразу, но показываем ошибку если невалидно
-  store.updateAccount(localAccount.value)
+const handlePasswordBlur = () => {
+  if (validatePassword()) {
+    store.updateAccount(localAccount.value)
+  }
 }
 
 const handleTypeChange = (newType: 'LDAP' | 'Local') => {
@@ -190,9 +216,10 @@ const handleDelete = () => {
   store.removeAccount(localAccount.value.id)
 }
 
-// Синхронизация с props
-watch(() => props.account, (newAccount) => {
-  localAccount.value = { ...newAccount }
+watch(() => props.account, (newAccount: Account & { label?: unknown }) => {
+  const normalized = normalizeAccount(newAccount)
+  localAccount.value = normalized
+  labelInputString.value = stringFromLabel(normalized.label)
 }, { deep: true })
 </script>
 

@@ -1,86 +1,39 @@
 # Account Manager
 
-Приложение для управления учетными записями (LDAP и Local).
+Небольшое приложение для управления учётками — можно добавлять LDAP и локальные аккаунты, всё хранится в localStorage.
 
-## Технологии
+## Стек
 
-- **Vue 3** - Composition API + `<script setup>`
-- **TypeScript** - строгая типизация
-- **Pinia** - state management с persist в localStorage
-- **Vuetify 3** - UI компоненты
-- **Vite** - сборщик
-- **@vueuse/core** - утилиты для Vue
-- **uuid** - генерация уникальных ID
+Vue 3 (Composition API, script setup), TypeScript, Pinia с persist, Vuetify 3, Vite. Для id использую uuid, по мелочи — @vueuse/core.
 
-## Установка и запуск
+## Как запустить
 
 ```bash
-# Установка зависимостей
 npm install
-
-# Запуск dev сервера
 npm run dev
-
-# Сборка для production
-npm run build
-
-# Предпросмотр production build
-npm run preview
 ```
 
-## Функциональность
+Откроется на localhost:5173. Сборка: `npm run build`, посмотреть билд: `npm run preview`.
 
-### Основные возможности
+## Что умеет
 
-- ✅ Добавление аккаунтов
-- ✅ Удаление аккаунтов
-- ✅ Редактирование с автосохранением
-- ✅ Валидация полей
-- ✅ Persist в localStorage
-- ✅ Responsive дизайн
+Можно добавлять аккаунты (кнопка +), удалять, править. Данные сразу пишутся в store и в localStorage. Есть валидация: логин обязателен, пароль — только для типа Local. Лейблы вводишь через точку с запятой (`admin; dev`) — в интерфейсе они отображаются чипами.
 
-### Типы аккаунтов
+**Типы:**
+- **Local** — логин + пароль (пароль обязателен).
+- **LDAP** — только логин, поле пароля скрыто и в данных null.
 
-- **Local** - требует login и password
-- **LDAP** - требует только login, password = null
+Валидация срабатывает по blur у полей и по смене типа в селекте. Ошибки — красная обводка у полей. Лимиты: логин и пароль до 100 символов, лейбл до 50 (он необязательный).
 
-### Валидация
-
-- **Login**: обязательное, макс. 100 символов
-- **Password**: обязательное для Local, макс. 100 символов
-- **Label**: опционально, макс. 50 символов
-
-Валидация срабатывает на:
-- `blur` для текстовых полей
-- `change` для select
-
-### Label (теги)
-
-Формат: `"tag1; tag2; tag3"`
-
-Отображается как чипы в UI, хранится как строка с разделителем `;`
-
-## Структура проекта
+## Структура
 
 ```
 src/
-├── types/
-│   └── account.ts          # TypeScript интерфейсы
-├── stores/
-│   └── accounts.ts         # Pinia store
-├── components/
-│   └── AccountForm.vue     # Форма аккаунта
-├── App.vue                 # Главный компонент
-└── main.ts                 # Точка входа
+├── types/account.ts
+├── stores/accounts.ts
+├── components/AccountForm.vue
+├── App.vue
+└── main.ts
 ```
 
-## Коммиты
-
-```
-feat: setup vue3 ts pinia vuetify
-feat: accounts store + persist
-feat: account form + validation
-fix: label chips parsing
-feat: ldap password toggle
-style: responsive + polish
-```
+Всё по ТЗ, без лишнего. Если что-то сломается при первом запуске — напиши, разберёмся.
